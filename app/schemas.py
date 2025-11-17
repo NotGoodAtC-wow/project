@@ -44,7 +44,7 @@ class EquipmentOut(EquipmentBase):
 
 
 class EquipmentDetail(EquipmentOut):
-    histories: List[HistoryOut] = []
+    histories: List[HistoryOut] = Field(default_factory=list)
 
 
 class StatusUpdate(BaseModel):
@@ -53,3 +53,15 @@ class StatusUpdate(BaseModel):
 
 class HistoryCreate(HistoryBase):
     pass
+
+
+class EquipmentUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=255)
+    location: Optional[str] = Field(default=None, max_length=255)
+    notes: Optional[str] = Field(default=None, max_length=2000)
+
+
+class UserCreate(BaseModel):
+    username: str = Field(..., max_length=255)
+    password: str = Field(..., min_length=4)
+    role: str = Field(default="user")

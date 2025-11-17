@@ -6,6 +6,7 @@
     <div class="card shadow-sm">
       <div class="card-body">
         <h5 class="card-title">Добавить оборудование</h5>
+        {% if current_user and current_user.role == 'admin' %}
         <form method="post" action="/equipment/add">
           <div class="mb-3">
             <label class="form-label">Название</label>
@@ -23,6 +24,11 @@
             <button class="btn btn-primary" type="submit">Создать</button>
           </div>
         </form>
+        {% else %}
+        <p class="text-muted small">
+          Только администратор может добавлять оборудование. <a href="/login">Войдите</a>, если у вас есть доступ.
+        </p>
+        {% endif %}
       </div>
     </div>
   </div>

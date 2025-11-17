@@ -6,9 +6,11 @@ from typing import List, Optional
 from uuid import uuid4
 
 import qrcode
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from . import models, schemas
+from .auth import hash_password
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 QR_CODES_DIR = BASE_DIR / "static" / "qrcodes"
@@ -90,3 +92,72 @@ def add_history_entry(
     log_history(db, equipment.id, history_in.action, history_in.user)
     db.refresh(equipment)
     return equipment
+
+
+def update_equipment_details(
+    db: Session, equipment_uuid: str, update_in: schemas.EquipmentUpdate
+) -> Optional[models.Equipment]:
+    equipment = get_equipment_by_uuid(db, equipment_uuid)
+    if not equipment:
+        return None
+    has_changes = False
+    if update_in.name is not None:
+        equipment.name = update_in.name
+        has_changes = True
+    if update_in.location is not None:
+        equipment.location = update_in.location
+        has_changes = True
+    if update_in.notes is not None:
+        equipment.notes = update_in.notes
+        has_changes = True
+    if not has_changes:
+        return equipment
+    db.commit()
+    db.refresh(equipment)
+    log_history(db, equipment.id, action="Данные оборудования обновлены")
+    return equipment
+
+
+def delete_equipment(db: Session, equipment_uuid: str) -> bool:
+    equipment = get_equipment_by_uuid(db, equipment_uuid)
+    if not equipment:
+        return False
+    db.delete(equipment)
+    db.commit()
+    return True
+
+
+def get_user(db: Session, user_id: int) -> Optional[models.User]:
+    return db.query(models.User).filter(models.User.id == user_id).first()
+
+
+def get_user_by_username(db: Session, username: str) -> Optional[models.User]:
+    return (
+        db.query(models.User)
+        .filter(func.lower(models.User.username) == func.lower(username))
+        .first()
+    )
+
+
+def create_user(db: Session, user_in: schemas.UserCreate) -> models.User:
+    user = models.User(
+        username=user_in.username,
+        role=user_in.role,
+        hashed_password=hash_password(user_in.password),
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def ensure_default_admin(db: Session) -> None:
+    if db.query(models.User).count():
+        return
+    admin = models.User(
+        username="admin",
+        role="admin",
+        hashed_password=hash_password("admin"),
+    )
+    db.add(admin)
+    db.commit()
