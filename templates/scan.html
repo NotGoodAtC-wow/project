@@ -1,0 +1,38 @@
+﻿{% extends "base.html" %}
+{% block title %}Scan{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">QR scanner</h5>
+        <p class="text-muted">Point the device camera at an equipment QR code.</p>
+        <div id="reader" style="width:100%;"></div>
+        <div class="alert alert-info d-none mt-3" id="scan-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+<script>
+  const resultBox = document.getElementById("scan-result");
+  function onScanSuccess(decodedText) {
+    resultBox.classList.remove("d-none");
+    resultBox.textContent = 'Code: ' + decodedText + '. Opening...';
+    setTimeout(() => (window.location.href = '/item/' + decodedText), 600);
+  }
+  function onScanFailure(error) {
+    console.debug('Scanner: ' + error);
+  }
+  const html5QrCode = new Html5Qrcode("reader");
+  Html5Qrcode.getCameras().then((devices) => {
+    if (!devices || !devices.length) {
+      resultBox.classList.remove("d-none");
+      resultBox.classList.replace("alert-info", "alert-warning");
+      resultBox.textContent = "Camera not found.";
+      return;
+    }
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess, onScanFailure);
+  });
+</script>
+{% endblock %}

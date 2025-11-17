@@ -1,0 +1,74 @@
+﻿{% extends "base.html" %}
+{% block title %}Инструменты{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">Добавить оборудование</h5>
+        <form method="post" action="/equipment/add">
+          <div class="mb-3">
+            <label class="form-label">Название</label>
+            <input name="name" class="form-control" placeholder="Например, дрель" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Местоположение</label>
+            <input name="location" class="form-control" placeholder="Склад А" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Заметки</label>
+            <textarea name="notes" class="form-control" rows="3" placeholder="Необязательно"></textarea>
+          </div>
+          <div class="d-grid">
+            <button class="btn btn-primary" type="submit">Создать</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="card-title mb-0">Список оборудования</h5>
+          <a class="btn btn-outline-secondary btn-sm" href="/scan">Сканировать QR</a>
+        </div>
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead>
+              <tr>
+                <th>Название</th>
+                <th>Местоположение</th>
+                <th>Статус</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in equipment %}
+              <tr>
+                <td class="fw-semibold">{{ item.name }}</td>
+                <td>{{ item.location }}</td>
+                <td>
+                  <span class="badge bg-{{ status_badges.get(item.status, 'secondary') }}">
+                    {{ status_labels.get(item.status, item.status) }}
+                  </span>
+                </td>
+                <td class="text-end">
+                  <a class="btn btn-sm btn-outline-primary" href="/item/{{ item.uuid }}">
+                    Открыть
+                  </a>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="4" class="text-center text-muted">Записей пока нет</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

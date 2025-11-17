@@ -1,0 +1,140 @@
+﻿{% extends "base.html" %}
+{% block title %}{{ equipment.name }}{% endblock %}
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">{{ equipment.name }}</h5>
+        <p class="text-muted mb-1">UUID: {{ equipment.uuid }}</p>
+        <p class="mb-1">Location: <strong>{{ equipment.location }}</strong></p>
+        <p class="mb-3">Notes: {{ equipment.notes or '-' }}</p>
+        <span class="badge bg-{{ status_badges.get(equipment.status, 'secondary') }}">
+          {{ status_labels.get(equipment.status, equipment.status) }}
+        </span>
+        {% if equipment.qrcode_path %}
+        <hr />
+        <p class="fw-semibold">QR code</p>
+        <img
+          src="{{ url_for('static', path=equipment.qrcode_path) }}"
+          alt="QR {{ equipment.name }}"
+          class="img-fluid border rounded"
+        />
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card shadow-sm mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Update status</h5>
+        <form id="status-form" class="row g-2">
+          <div class="col-sm-8">
+            <select class="form-select" name="status" required>
+              {% for key, label in status_labels.items() %}
+              <option value="{{ key }}" {% if equipment.status == key %}selected{% endif %}>
+                {{ label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-4 d-grid">
+            <button class="btn btn-primary" type="submit">Save</button>
+          </div>
+        </form>
+        <div id="status-message" class="text-muted small mt-2"></div>
+      </div>
+    </div>
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title">History</h5>
+        <form id="history-form" class="row g-2 mb-3">
+          <div class="col-md-6">
+            <input class="form-control" name="action" placeholder="Action" required />
+          </div>
+          <div class="col-md-4">
+            <input class="form-control" name="user" placeholder="User" />
+          </div>
+          <div class="col-md-2 d-grid">
+            <button class="btn btn-outline-secondary" type="submit">Add</button>
+          </div>
+        </form>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Action</th>
+                <th>User</th>
+              </tr>
+            </thead>
+            <tbody id="history-table">
+              {% for entry in equipment.histories|sort(attribute='timestamp', reverse=True) %}
+              <tr>
+                <td>{{ entry.timestamp.strftime('%d.%m.%Y %H:%M') if entry.timestamp else '' }}</td>
+                <td>{{ entry.action }}</td>
+                <td>{{ entry.user or '-' }}</td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="3" class="text-center text-muted">No history yet</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  const equipmentUuid = "{{ equipment.uuid }}";
+  const statusForm = document.getElementById("status-form");
+  const statusMessage = document.getElementById("status-message");
+  statusForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(statusForm);
+    const status = formData.get("status");
+    const response = await fetch('/equipment/' + equipmentUuid + '/status', {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (response.ok) {
+      statusMessage.textContent = "Status updated";
+      statusMessage.classList.remove("text-danger");
+    } else {
+      statusMessage.textContent = "Failed to update";
+      statusMessage.classList.add("text-danger");
+    }
+  });
+
+  const historyForm = document.getElementById("history-form");
+  const historyTable = document.getElementById("history-table");
+  historyForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(historyForm);
+    const payload = Object.fromEntries(formData.entries());
+    const response = await fetch('/equipment/' + equipmentUuid + '/history', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      return;
+    }
+    const equipment = await response.json();
+    const latest = equipment.histories[equipment.histories.length - 1];
+    if (!latest) {
+      return;
+    }
+    historyForm.reset();
+    const row = document.createElement("tr");
+    row.innerHTML =
+      '<td>' + new Date(latest.timestamp).toLocaleString() + '</td>' +
+      '<td>' + latest.action + '</td>' +
+      '<td>' + (latest.user ?? '-') + '</td>';
+    historyTable.prepend(row);
+  });
+</script>
+{% endblock %}
