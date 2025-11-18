@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Пользователи (админ){% endblock %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="card-title mb-0">Пользователи</h5>
+      <a class="btn btn-sm btn-outline-secondary" href="/">На главную</a>
+    </div>
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Логин</th>
+            <th>Роль</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>{{ u.id }}</td>
+            <td class="fw-semibold">{{ u.username }}</td>
+            <td>
+              <form method="post" action="/admin/users/{{ u.id }}/role" class="d-flex gap-2 align-items-center mb-0">
+                <select class="form-select form-select-sm" name="role">
+                  {% if u.role == 'user' %}
+                  <option value="user" selected>user</option>
+                  {% else %}
+                  <option value="user">user</option>
+                  {% endif %}
+                  {% if u.role == 'admin' %}
+                  <option value="admin" selected>admin</option>
+                  {% else %}
+                  <option value="admin">admin</option>
+                  {% endif %}
+                </select>
+                <button class="btn btn-sm btn-primary" type="submit">Сохранить</button>
+              </form>
+            </td>
+            <td class="text-muted small">
+              {% if current_user and u.id == current_user.id %}свой аккаунт{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" class="text-center text-muted">Нет пользователей</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  </div>
+{% endblock %}

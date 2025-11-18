@@ -114,7 +114,13 @@
             <tbody id="history-table">
               {% for entry in equipment.histories|sort(attribute='timestamp', reverse=True) %}
               <tr>
-                <td>{{ entry.timestamp.strftime('%d.%m.%Y %H:%M') if entry.timestamp else '' }}</td>
+                <td>
+                  {% if entry.timestamp %}
+                  <time data-iso="{{ entry.timestamp.isoformat() }}">{{ entry.timestamp.isoformat() }}</time>
+                  {% else %}
+                  —
+                  {% endif %}
+                </td>
                 <td>{{ entry.action }}</td>
                 <td>{{ entry.user or '—' }}</td>
               </tr>
@@ -175,10 +181,14 @@
     historyForm.reset();
     const row = document.createElement("tr");
     row.innerHTML =
-      '<td>' + new Date(latest.timestamp).toLocaleString() + '</td>' +
+      '<td><time data-iso="' + latest.timestamp + '">' + latest.timestamp + '</time></td>' +
       '<td>' + latest.action + '</td>' +
       '<td>' + (latest.user ?? '-') + '</td>';
     historyTable.prepend(row);
+    // Convert the newly added <time> to the user's local time
+    if (window.convertLocalTimes) {
+      window.convertLocalTimes(row);
+    }
   });
 </script>
 {% endif %}

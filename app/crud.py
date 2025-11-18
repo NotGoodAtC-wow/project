@@ -1,6 +1,7 @@
 ﻿"""Database helper functions."""
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
@@ -68,7 +69,17 @@ def update_equipment_status(
     equipment = get_equipment_by_uuid(db, equipment_uuid)
     if not equipment:
         return None
+    previous_status = equipment.status
     equipment.status = status.value
+    now = datetime.utcnow()
+    if status == schemas.EquipmentStatus.issued and not equipment.issued_at:
+        equipment.issued_at = now
+    if (
+        status == schemas.EquipmentStatus.available
+        and previous_status == schemas.EquipmentStatus.issued.value
+    ):
+        equipment.returned_at = now
+    equipment.updated_at = now
     db.commit()
     db.refresh(equipment)
     log_history(db, equipment.id, action=f"Статус изменён на {status.value}")
@@ -112,6 +123,7 @@ def update_equipment_details(
         has_changes = True
     if not has_changes:
         return equipment
+    equipment.updated_at = datetime.utcnow()
     db.commit()
     db.refresh(equipment)
     log_history(db, equipment.id, action="Данные оборудования обновлены")
@@ -140,12 +152,30 @@ def get_user_by_username(db: Session, username: str) -> Optional[models.User]:
 
 
 def create_user(db: Session, user_in: schemas.UserCreate) -> models.User:
+    # Защита от дубля по логину (регистронезависимо)
+    existing = get_user_by_username(db, user_in.username)
+    if existing:
+        raise ValueError("Username already exists")
     user = models.User(
         username=user_in.username,
         role=user_in.role,
         hashed_password=hash_password(user_in.password),
     )
     db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def list_users(db: Session) -> List[models.User]:
+    return db.query(models.User).order_by(models.User.id.asc()).all()
+
+
+def set_user_role(db: Session, user_id: int, role: str) -> Optional[models.User]:
+    user = get_user(db, user_id)
+    if not user:
+        return None
+    user.role = role
     db.commit()
     db.refresh(user)
     return user

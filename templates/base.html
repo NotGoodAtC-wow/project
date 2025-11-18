@@ -21,11 +21,15 @@
           <span class="text-white-50 small">
             {{ current_user.username }} ({{ 'админ' if current_user.role == 'admin' else 'пользователь' }})
           </span>
+          {% if current_user.role == 'admin' %}
+          <a class="btn btn-sm btn-outline-light" href="/admin/users">Админ</a>
+          {% endif %}
           <form method="post" action="/logout" class="mb-0">
             <button class="btn btn-sm btn-warning" type="submit">Выйти</button>
           </form>
           {% else %}
           <a class="btn btn-sm btn-outline-light" href="/login">Войти</a>
+          <a class="btn btn-sm btn-success" href="/register">Регистрация</a>
           {% endif %}
         </div>
       </div>
@@ -39,4 +43,32 @@
       crossorigin="anonymous"
     ></script>
   </body>
+  <script>
+    (function () {
+      function toDateAssumingUtc(iso) {
+        if (!iso) return null;
+        let s = String(iso);
+        // If the string has no timezone info, assume it's UTC and append 'Z'
+        if (!/[zZ]|[+\-]\d{2}:?\d{2}$/.test(s)) {
+          s += 'Z';
+        }
+        const d = new Date(s);
+        return isNaN(d) ? null : d;
+      }
+
+      function convertAll(root) {
+        const scope = root || document;
+        const nodes = scope.querySelectorAll('time[data-iso], time[datetime]');
+        nodes.forEach((el) => {
+          const iso = el.getAttribute('data-iso') || el.getAttribute('datetime') || '';
+          const d = toDateAssumingUtc(iso);
+          if (d) {
+            el.textContent = d.toLocaleString();
+          }
+        });
+      }
+      window.convertLocalTimes = convertAll;
+      document.addEventListener('DOMContentLoaded', function () { convertAll(); });
+    })();
+  </script>
 </html>

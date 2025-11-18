@@ -23,6 +23,13 @@ app.add_middleware(SessionMiddleware, secret_key="smart-inventory-demo-secret")
 BASE_DIR = Path(__file__).resolve().parents[1]
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+def _format_datetime(value):
+    if not value:
+        return "-"
+    return value.strftime("%d.%m.%Y %H:%M")
+
+
+templates.env.filters["format_dt"] = _format_datetime
 
 STATUS_LABELS: Dict[str, str] = {
     schemas.EquipmentStatus.available.value: "В наличии",
@@ -90,6 +97,51 @@ async def login(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
 
 
+@app.get("/register", response_class=HTMLResponse)
+def register_page(
+    request: Request, current_user: Optional[models.User] = Depends(get_current_user)
+):
+    if current_user:
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    return templates.TemplateResponse(
+        "register.html", {"request": request, "error": None, "current_user": None}
+    )
+
+
+@app.post("/register")
+async def register(request: Request, db: Session = Depends(get_db)):
+    content_type = request.headers.get("content-type", "")
+    expects_html = "application/json" not in content_type
+
+    try:
+        if "application/json" in content_type:
+            payload = await request.json()
+            user_in = schemas.UserCreate(**payload)
+            user = crud.create_user(db, user_in)
+            return schemas.UserOut.from_orm(user)
+
+        # HTML form
+        form = await request.form()
+        username = (form.get("username") or "").strip()
+        password = form.get("password") or ""
+        if not username or not password:
+            raise HTTPException(status_code=400, detail="Username and password required")
+        user_in = schemas.UserCreate(username=username, password=password)
+        crud.create_user(db, user_in)
+        # auto login after registration
+        new_user = crud.get_user_by_username(db, username)
+        request.session["user_id"] = new_user.id
+        return RedirectResponse("/", status_code=status.HTTP_303_SEE_OTHER)
+    except ValueError as e:
+        if expects_html:
+            return templates.TemplateResponse(
+                "register.html",
+                {"request": request, "error": str(e), "current_user": None},
+                status_code=400,
+            )
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @app.post("/logout")
 def logout(
     request: Request,
@@ -115,6 +167,59 @@ def list_equipment(
         "current_user": current_user,
     }
     return templates.TemplateResponse("add_equipment.html", context)
+
+
+# ----------------------
+# Admin: управление пользователями
+# ----------------------
+
+@app.get("/admin/users", response_class=HTMLResponse)
+def admin_users_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    users = crud.list_users(db)
+    return templates.TemplateResponse(
+        "admin_users.html",
+        {"request": request, "current_user": admin, "users": users},
+    )
+
+
+@app.post("/admin/users/{user_id}/role")
+async def change_user_role_form(
+    user_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    form = await request.form()
+    role = (form.get("role") or "").strip()
+    if role not in ("user", "admin"):
+        raise HTTPException(status_code=400, detail="Invalid role")
+    if user_id == admin.id:
+        # предотвращаем случайное саморазжалование последнего админа
+        # (минимальная защита: запретим менять собственную роль через форму)
+        raise HTTPException(status_code=400, detail="Нельзя менять свою роль через форму")
+    user = crud.set_user_role(db, user_id, role)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return RedirectResponse("/admin/users", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@app.patch("/admin/users/{user_id}/role", response_model=schemas.UserOut)
+def change_user_role_api(
+    user_id: int,
+    update: schemas.RoleUpdate,
+    db: Session = Depends(get_db),
+    admin: models.User = Depends(require_admin),
+):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot change own role via API")
+    user = crud.set_user_role(db, user_id, update.role)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
 
 
 @app.get("/scan", response_class=HTMLResponse)

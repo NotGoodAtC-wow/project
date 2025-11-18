@@ -1,4 +1,6 @@
 """SQLAlchemy models for Smart Inventory."""
+from datetime import datetime
+
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import relationship
 
@@ -24,6 +26,18 @@ class Equipment(Base):
     notes = Column(Text, nullable=True)
     status = Column(String, nullable=False, default="available")
     qrcode_path = Column(String, nullable=True)
+    created_at = Column(
+        DateTime, nullable=False, default=datetime.utcnow, server_default=func.now()
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+        onupdate=datetime.utcnow,
+        server_default=func.now(),
+    )
+    issued_at = Column(DateTime, nullable=True)
+    returned_at = Column(DateTime, nullable=True)
 
     histories = relationship(
         "History", back_populates="equipment", cascade="all, delete-orphan"
